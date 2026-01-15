@@ -1,3 +1,0 @@
-# Example dependencies for option strategy computation
-py-vollib>=1.0.0
-optionlab>=0.2.0
