@@ -1,50 +1,39 @@
+from http.server import BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
 import json
+
 from option_strategy_system import OptionStrategySystem
 
 
-def handler(event, context):
-    """
-    Vercel serverless function entry point.
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        try:
+            qs = parse_qs(urlparse(self.path).query)
 
-    This function expects query parameters `symbol` and `objective`.
-    It instantiates the OptionStrategySystem and returns the top
-    candidate strategy as JSON.
+            symbol = (qs.get("symbol", ["AAPL"])[0] or "AAPL").upper()
+            objective = (qs.get("objective", ["income"])[0] or "income").lower()
 
-    Parameters
-    ----------
-    event : dict
-        AWS lambda/Vercel style event object containing `queryStringParameters`.
-    context : dict
-        Context object (unused).
+            system = OptionStrategySystem()
+            result = system.get_best_strategy(symbol, objective)
 
-    Returns
-    -------
-    dict
-        HTTP response with status code and JSON body.
-    """
-    # Extract query parameters
-    params = event.get('queryStringParameters') or {}
-    symbol = params.get('symbol', 'AAPL')
-    objective = params.get('objective', 'income')
+            body = json.dumps({
+                "ok": True,
+                "data": result
+            }, ensure_ascii=False).encode("utf-8")
 
-    system = OptionStrategySystem()
-    best = system.get_best_strategy(symbol, objective)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
 
-    # Convert StrategyCandidate to serialisable dict
-    if best:
-        candidate = best['candidate']
-        response_body = {
-            'strategy': candidate.name,
-            'legs': candidate.legs,
-            'objective': candidate.objective,
-            'notes': candidate.notes,
-            'score': best['score'],
-        }
-    else:
-        response_body = {'error': 'No strategy found'}
+        except Exception as e:
+            body = json.dumps({
+                "ok": False,
+                "error": str(e)
+            }, ensure_ascii=False).encode("utf-8")
 
-    return {
-        'statusCode': 200,
-        'headers': {'Content-Type': 'application/json'},
-        'body': json.dumps(response_body),
-    }
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.end_headers()
+            self.wfile.write(body)
