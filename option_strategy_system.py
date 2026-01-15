@@ -150,13 +150,21 @@ class ScoreEngine:
 
     def score(self, candidates: List[StrategyCandidate], objective: str) -> List[Dict[str, Any]]:
         scored_list: List[Dict[str, Any]] = []
-        for candidate in candidates:
-            score = 0.5
-            scored_list.append({'candidate': candidate, 'score': score})
-        scored_list.sort(key=lambda x: x['score'], reverse=True)
+
+        for c in candidates:
+            score = 0.5  # TODO: later replace with real scoring
+
+            scored_list.append({
+                "score": score,
+                "name": c.name,
+                "objective": c.objective,
+                "notes": c.notes,
+                "legs": c.legs,
+            })
+
+        scored_list.sort(key=lambda x: x["score"], reverse=True)
         return scored_list
-
-
+        
 class OptionStrategySystem:
     def __init__(self):
         self.data_engine = DataEngine()
@@ -167,6 +175,19 @@ class OptionStrategySystem:
 
     def get_best_strategy(self, symbol: str, objective: str) -> Dict[str, Any]:
         regime = self.regime_engine.evaluate_regime(symbol)
+        proxies = self.positioning_engine.compute_proxies(symbol)
+
         candidates = self.strategy_router.route(symbol, regime, objective)
         scored = self.score_engine.score(candidates, objective)
-        return scored[0] if scored else {}
+
+        best = scored[0] if scored else {}
+
+        return {
+            "symbol": symbol,
+            "objective": objective,
+            "regime": regime,
+            "proxies": proxies,
+            "best": best,
+            "candidates_count": len(candidates),
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+        }
