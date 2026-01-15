@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Option Strategy Finder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 2rem;
+            background: #f7f7f7;
+            color: #333;
+        }
+        .container {
+            max-width: 700px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        label {
+            display: block;
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+        input,
+        select {
+            width: 100%;
+            padding: 0.5rem;
+            margin-top: 0.5rem;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        button {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: #0070f3;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        button:hover {
+            background: #0059c9;
+        }
+        pre {
+            background: #eee;
+            padding: 1rem;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        /* Card to display the recommended strategy */
+        .result-card {
+            margin-top: 1.5rem;
+            padding: 1rem 1.5rem;
+            border: 1px solid #e0e0e0;
+            background: #fafafa;
+            border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.07);
+        }
+        .result-card h3 {
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            color: #0070f3;
+        }
+        .result-card h4 {
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+            font-weight: bold;
+        }
+        .result-card ul {
+            margin-left: 1.2rem;
+            padding-left: 0;
+        }
+        .result-card li {
+            margin-bottom: 0.4rem;
+        }
+        /* Informational block explaining objectives */
+        .objective-info {
+            margin-top: 2rem;
+            background: #f0f5ff;
+            padding: 1rem 1.5rem;
+            border-radius: 6px;
+            border-left: 4px solid #0070f3;
+        }
+        .objective-info h3 {
+            margin-top: 0;
+        }
+        .objective-info ul {
+            padding-left: 1.2rem;
+            margin-top: 0.5rem;
+        }
+        .objective-info ul li {
+            margin-bottom: 0.5rem;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Option Strategy Finder</h1>
+        <p class="intro">
+          请输入股票代码并选择你的交易目标，系统会为你推荐最适合的期权策略。
+          本工具旨在提供快速、简洁的策略建议，结合你的风险偏好和市场环境。
+        </p>
+
+        <div class="form-group">
+            <label for="symbol">股票代码 (Symbol)</label>
+            <input id="symbol" type="text" placeholder="例如：AAPL" />
+        </div>
+
+        <div class="form-group">
+            <label for="objective">目标 (Objective)</label>
+            <select id="objective">
+                <option value="income">Income 收租：寻找稳定的 Theta 收益</option>
+                <option value="trend">Trend 趋势：捕捉价格上升或下降</option>
+                <option value="volatility">Volatility 波动：利用波动率变化获利</option>
+            </select>
+        </div>
+
+        <button onclick="fetchStrategy()">获取策略</button>
+
+        <div id="result" class="result-card"></div>
+        <div class="objective-info">
+            <h3>目标说明</h3>
+            <ul>
+              <li><strong>收租 (Income)</strong>：出售权利、收取权利金，以时间价值衰减为主要收益来源，适合震荡或偏区间行情。</li>
+              <li><strong>趋势 (Trend)</strong>：通过购买或跨价差组合捕捉股票的上涨或下跌趋势，适合行情明确的方向性走势。</li>
+              <li><strong>波动 (Volatility)</strong>：利用预期波动率变化，通过跨式、宽式或日历价差等结构盈利，适合行情不明朗但波动率预期变化的场景。</li>
+            </ul>
+        </div>
+    </div>
+
+        <script>
+        async function fetchStrategy() {
+            const symbol = document.getElementById('symbol').value.trim() || 'AAPL';
+            const objective = document.getElementById('objective').value;
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>正在查询策略...</p>';
+            try {
+                const response = await fetch(`/api/strategy?symbol=${encodeURIComponent(symbol)}&objective=${encodeURIComponent(objective)}`);
+                const data = await response.json();
+                if (data.error) {
+                    resultDiv.innerHTML = `<h3>未找到策略</h3><p>${data.error}</p>`;
+                } else {
+                    // 构建结果卡片
+                    const content = `
+                        <h3>${data.strategy}</h3>
+                        <p><strong>目标：</strong> ${data.objective}</p>
+                        <p><strong>评分：</strong> ${data.score}</p>
+                        <p><strong>策略说明：</strong> ${data.notes || '无'}</p>
+                        <h4>组合腿详情</h4>
+                        <ul>
+                            ${data.legs.map(leg => `<li>${leg.direction} ${leg.type.toUpperCase()} @ 偏移 ${leg.strike_offset ?? leg.expiry_offset ?? leg.quantity ?? ''}</li>`).join('')}
+                        </ul>
+                    `;
+                    resultDiv.innerHTML = content;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = '<p>获取策略时出错，请稍后重试。</p>';
+            }
+        }
+        </script>
+</body>
+</html>
